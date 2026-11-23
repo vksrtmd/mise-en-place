@@ -37,6 +37,10 @@ Requires git, jq and python3 (3.9 or later; on macOS, the Command Line Tools shi
 
 Run `tests/check.sh` after changing a script or hook.
 
+## Running in cocon
+
+The setup works as the `~/.claude` config for [cocon](https://github.com/vksrtmd/cocon), which runs Claude Code in an isolated Linux container. Its rules and docs already handle what the container brings: a read-only main checkout (branches go in worktrees under `.claude/worktrees/`), a bind-mounted repo and memory-capped builds.
+
 ## License
 
 MIT, in [LICENSE](LICENSE).
