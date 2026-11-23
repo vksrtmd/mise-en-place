@@ -1,0 +1,36 @@
+{
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "hookify@claude-plugins-official": true
+  },
+  "outputStyle": "terse",
+  "model": "opus",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/block-destructive-git.sh"
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/require-closes-keyword.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/hooks/statusline.sh"
+  }
+}
