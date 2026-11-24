@@ -19,7 +19,7 @@ description: "TDD: use when building a feature or fixing a bug test-first, or wr
 
 **Conflicts**: when, at any step, a requirement (a handed item, the user's request) leaves a behaviour open or the code contradicts it (an ordering it doesn't fix, behaviour that looks like a bug), finish the seams no conflict touches, then stop and report every conflict at once: the requirement, what the code does, and the options. A suspected bug stays unpinned until the user answers, directly or through whoever briefed you.
 
-**Red at the base**: to check that a test already green on your branch goes red on the base commit, run [`scripts/red-at.sh`](scripts/red-at.sh) `<base> --copy <test files> -- <test cmd>`. It runs the tests in a scratch worktree, a bare checkout of `<base>`, and leaves yours as it is; when the tests need installed dependencies, add `--setup "<install cmd>"`. Read the failure output and confirm it shows the missing behaviour, with the dependencies in place.
+**Red at the base**: to prove a test red against the old code (`<base>` is the base commit, or `HEAD` while your change is uncommitted), run [`scripts/red-at.sh`](scripts/red-at.sh) `<base> --copy <test files> -- <test cmd>`. It runs the tests in a scratch worktree, a bare checkout of `<base>`, and leaves yours as it is; when the tests need installed dependencies, add `--setup "<install cmd>"`. Read the failure output and confirm it shows the missing behaviour, with the dependencies in place.
 
 Done when every confirmed seam, and every handed item a test can show, has a green test or is reported as a conflict, and, for a bug, its red command is green. Refactor in the review stage (the `code-review` skill), outside this loop.
 

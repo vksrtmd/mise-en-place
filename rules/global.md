@@ -4,6 +4,8 @@
 
 Name a branch `<issue_number>-<slug>` (`45-snapshots`), or `<slug>` for work without an issue. Before creating or pushing one, run `git fetch origin` and confirm the name is free: `git ls-remote --heads origin <name>`, `gh pr list --head <name> --state all` and `git branch --list <name>` all print nothing. Branch from `origin/<default branch>`, not the local copy.
 
+When `git remote` prints nothing, skip the fetch and the origin and `gh` checks, and branch from the local default branch. There is no PR to write: report the branch, and merge it only when the user asks, with `git merge --ff-only <branch>` from the main checkout.
+
 ## Worktrees
 
 Do each branch in its own worktree under `.claude/worktrees/`, inside the repo. Before each `git worktree add` or `git worktree remove`, and after each `gh pr merge` (it triggers a cleanup sweep), read `~/.claude/docs/worktrees.md`.
