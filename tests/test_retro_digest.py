@@ -624,6 +624,44 @@ write(tmp + "/solo.jsonl", [user("Go."), jl({"type": "assistant", "message": {"c
 out, _ = digest(tmp + "/solo.jsonl", "200")
 has("digest.py hedges main alone", out, "## hedges in reports\n  main: Nobody re-reviewed step 1.")
 
+# --to-read: a hidden entry between a call and its result leaves the call inside the window; it prints once.
+hid = agent_dir("hid", {"aaaaaaaa": [
+    user("Go."),
+    use("h1", "Bash", "make build"),
+    jl({"type": "attachment", "attachment": {"type": "hook_success"}}),
+    res("h1", True, "Exit code 2\nboom"),
+    use("h2", "Bash", "true"), res("h2", False, ""),
+]})
+out, _ = digest("--to-read", hid)
+check(out.count("@2 Bash: ") == 1, "digest.py --to-read hidden entry between call and result: call printed %d times: %s" % (out.count("@2 Bash: "), out))
+
+# --to-read: EXPECTED_RED nudge for ! windows of agents briefed for red tests.
+nr = agent_dir("nr", {
+    "aaaaaaaa": [user("Do TDD: write the failing test first."), use("n1", "Bash", "npm test"), res("n1", True, "Exit code 1\nboom")],
+    "bbbbbbbb": [user("Fix the thing."), use("n2", "Bash", "make"), res("n2", True, "Exit code 2\nfail")],
+})
+out, _ = digest("--to-read", nr)
+has("digest.py --to-read red nudge", out, "\nnote: 1 ! windows in agents briefed for red tests (aaaaaaaa): when their reds were meant, rewrite with EXPECTED_RED='npm\\ test'\n")
+has("digest.py --to-read red nudge after widen:", out, "<transcript> <line> <radius>\nnote: 1 ")
+out, _ = digest("--to-read", nr, env={"EXPECTED_RED": "zzz"})
+lacks("digest.py --to-read red nudge with EXPECTED_RED", out, "note:")
+out, _ = digest("--to-read", fr)
+lacks("digest.py --to-read red nudge without a red brief", out, "note:")
+
+# Hedges: a fenced code block is no sentence, in a report, a gap section and the main log's prose.
+fence = "```\ncurl -s https://x/y | jq .a; echo did not check\n```"
+fh = agent_dir("fh", {
+    "aaaaaaaa": [user("Go."), handback("Done.\n" + fence + "\nI assumed the host runs bash 5.")],
+    "bbbbbbbb": [user("Go."), handback("**Unconfirmed:** the lock order.\n" + fence + "\n")],
+})
+write(fh + ".jsonl", [user("Go."), jl({"type": "assistant", "message": {"content": [{"type": "text", "text": "Ran:\n" + fence + "\nAll green."}]}})])
+out, _ = digest(fh, "200")
+hd = sed_range(out, r"^## hedges", r"^$")
+lacks("digest.py hedges fence", hd, "curl")
+has("digest.py hedges outside a fence", hd, "agent · aaaaaaaa: I assumed the host runs bash 5.")
+has("digest.py hedges gap section with a fence", hd, "the lock order")
+lacks("digest.py hedges main fence", hd, "main:")
+
 tmpd.cleanup()
 
 sys.exit(lib.finish())
