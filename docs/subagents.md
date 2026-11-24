@@ -5,7 +5,8 @@ Read before writing a brief, launching an agent, or integrating a scratch branch
 ## Brief
 
 - List only files you have confirmed exist (`ls` them in the agent's worktree, or your checkout for a read-only agent): a template's "read the repo's CLAUDE.md" sends each agent after a file that may not be there.
-- Copy the wait block from `~/.claude/docs/track-builds.md` step 3 into the brief of every agent that runs the repo's check, a build or a test suite.
+- Copy the wait block from `~/.claude/docs/track-builds.md` step 3 into the brief of every agent that runs the repo's check, a build, a test suite or a server.
+- Have every agent hand back its report, or the path of the file holding it, as its final message, after its last tool call: the handback carries only that message.
 - An agent that deletes or moves text greps the repo for references into each passage it touches (`below`, `above`, step numbers, section names), in files it doesn't own too, and lists them in its report. It keeps each rule's force as it was: a `Never`, `must` or condition it rewrites stays a `Never`, `must` or condition.
 - A review brief lists the edits the user made in the change under review, deletions included, as intended: the reviewer takes them as the baseline.
 

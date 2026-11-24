@@ -13,15 +13,16 @@ A **track** is a part of a build that one agent can finish against a fixed contr
 
      > Run any command over 2 min with `run_in_background: true` and wait for the completion
      > notification. Don't poll. To use Monitor, first call ToolSearch with `select:Monitor`;
-     > its `timeout_ms` caps at 1800000 (30 min): re-arm it on expiry. Stop every background task you started before handing
-     > back, by its task ID with TaskStop; never `pkill`, which also kills other agents' runs. A
+     > its `timeout_ms` caps at 1800000 (30 min): re-arm it on expiry. Stop every background task you started, a server included, before handing
+     > back, by its task ID with TaskStop; never `pkill`, or `kill` on what a `pgrep -f` pattern matches: either can hit
+     > other agents' runs and your own shell. A
      > block you can't clear within 10 minutes (another agent's work, a missing tool) ends your
      > run: hand back your report with the block named. Waiting on a build lock
      > or a `flock` is a queue, not a block.
 
    - its report: branch, head SHA, its tests' exit status, each conflict tdd stopped on, and each bug it found outside its track.
 4. Run at most 6 agents at once, starting the next as a slot frees: more burn the usage limit without finishing sooner. Cargo tracks follow the tighter cap in `~/.claude/rules/rust.md`; read it before planning a Cargo build (it loads by itself only once you touch a Rust file).
-5. When an agent stops on a conflict, ask the user, then resume it with SendMessage, carrying the answer. Once you've read an agent's report, stop it with TaskStop, and stop your own watchers for it; each of your own wait loops has a `timeout` too.
+5. When an agent stops on a conflict, ask the user, then resume it with SendMessage, carrying the answer. An agent's completion notification fires only once it has stopped: TaskStop no agent that has sent one; only a hung agent (the heartbeat below) needs TaskStop. Once you've read its report, stop your own watchers for it; each of your own wait loops has a `timeout` too.
 
    While agents run, keep a heartbeat: a recurring CronCreate job every 20 minutes (load it with ToolSearch `select:CronCreate`), deleted with CronDelete once the last agent reports. A chain of background `sleep`s dies when one wake lands inside a usage limit; a recurring job fires again after the limit resets. On each wake, check every running agent's transcript (`~/.claude/projects/<project>/<session id>/subagents/agent-*.jsonl`): one unchanged for 10 minutes is hung. Read its last lines, then SendMessage it the way out, or TaskStop it and dispatch the track again with the block in its brief.
 6. Integrate the branches, then run the full check once yourself: every test suite and linter the repo has.
