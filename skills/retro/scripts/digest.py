@@ -8,7 +8,10 @@ Usage: [MIN_AGENTS=2] [EXPECTED_RED=<regex>] digest.py <session-dir | session.js
          flagged @line, width default 400, without entries that only carry harness context (isMeta, <system-reminder>,
          # Environment update)
        digest.py --to-read <session-dir | session.jsonl> [radius [width]]   a `widen:` line (the --around command as
-         a template) and a `<who> <path>` line per transcript with a group, once; then each ! and ? group (~ stays
+         a template), a `note:` line when EXPECTED_RED is unset and agents whose prompt mentions tdd,
+         red-first, red tests or a mutation test/run have ! windows on Bash calls (`note: agents briefed for red tests have
+         ! windows (<id8>, ...): when their reds were meant, rewrite with EXPECTED_RED='<regex of their commands>'`), and a `<who> <path>` line per transcript
+         with a group, once; then each ! and ? group (~ stays
          out), main log first, as `<mark> <main | id8> @<line>[ ×N]` and its --around window at the group's first
          @line, radius default 1, width default 400, with its call's line above it when the window leaves it out.
          A friction key (tool, text) in at least MIN_AGENTS agents prints its first agent group's window, then
@@ -131,6 +134,7 @@ GAPS = rx(r"^[\s#*>-]*(?:Unconfirmed|Not (?:checked|confirmed|verified))\b", re.
 GAPS_ONLY = rx(r"^[\s#*>-]*(?:Unconfirmed|Not (?:checked|confirmed|verified))\b[\s:*]*$", re.I)
 QUOTED_SPAN = rx(r"`[^`]*`|\"[^\"]*\"|“[^”]*”|(?<!\w)'[^']*'(?!\w)")
 SENTENCE_END = rx(r"(?<=[.!?;])\s+")
+FENCE_OPEN = rx(r"[ \t]*(`{3,}|~{3,})")
 SENTENCE_BREAK = rx(r"(?<=[.!?;])\s+|\s(?=- \*\*)")
 
 WS_RUN = rx(r"\s+")
@@ -704,8 +708,27 @@ def brief(entries, who):
     return ["  %s brief: %s" % (who, s) for s in SENTENCE_END.split(squash(p)) if BRIEF_LIMIT.search(s)]
 
 
+def drop_fences(text):
+    """The text without its fenced code blocks, each replaced by a newline; an unterminated fence stays."""
+    lines, out, i = text.split("\n"), [], 0
+    while i < len(lines):
+        m = FENCE_OPEN.match(lines[i])
+        end = None
+        if m:
+            f = m.group(1)
+            close = rx(r"[ \t]*%s{%d,}[ \t]*$" % (re.escape(f[0]), len(f)))
+            end = next((j for j in range(i + 1, len(lines)) if close.match(lines[j])), None)
+        if end is None:
+            out.append(lines[i])
+            i += 1
+        else:
+            out.append("")
+            i = end + 1
+    return "\n".join(out)
+
+
 def sentences(text):
-    return [s for s in SENTENCE_BREAK.split(squash(text)) if re.search(r"\w", s)]
+    return [s for s in SENTENCE_BREAK.split(squash(drop_fences(text))) if re.search(r"\w", s)]
 
 
 def is_tally(line):
@@ -728,7 +751,7 @@ def echoes_limit(sentence, prompt):
 
 def hedge_sentences(text, prompt=None):
     """The sentences of a text matching HEDGE outside findings, tally lines and a prompt's own limits."""
-    body = "\n".join(x for x in text.split("\n") if not FINDING.search(x) and not is_tally(x))
+    body = "\n".join(x for x in drop_fences(text).split("\n") if not FINDING.search(x) and not is_tally(x))
     return [s for s in sentences(body) if not FINDING.search(s) and HEDGE.search(QUOTED_SPAN.sub("", s))
             and not echoes_limit(s, prompt)]
 
@@ -739,7 +762,7 @@ def hedges(entries, who):
     out = []
     prompt = first_string_prompt(entries)
     for message in handbacks(entries):
-        lines = message.split("\n")
+        lines = drop_fences(message).split("\n")
         if any(GAPS.search(x) for x in lines):
             inside, kept = False, []
             for x in lines:
@@ -1014,20 +1037,40 @@ def digest(target, w, env):
     return out
 
 
+RED_BRIEF = rx(r"\btdd\b|red[- ]first|red tests?\b|mutation (test|run)", re.I)
+
+
+def red_nudge(flagged, cache, env):
+    """A note line naming the agents briefed for red tests that have ! windows on Bash calls, when EXPECTED_RED is unset."""
+    if env.get("EXPECTED_RED"):
+        return []
+    who = []
+    for id8, path, groups in flagged:
+        prompt = first_string_prompt(cache[path]) if id8 != "main" else None
+        if prompt is not None and RED_BRIEF.search(prompt) and any(o["m"] == "!" and o["name"] == "Bash" for o, _ in groups):
+            who.append(id8)
+    if not who:
+        return []
+    return ["note: agents briefed for red tests have ! windows (%s): when their reds were meant, rewrite with "
+            "EXPECTED_RED='<regex of their commands>'" % ", ".join(who)]
+
+
 def to_read_windows(target, radius, w, env):
     """The widen command as a template and a `<who> <path>` line per transcript with a group, then each group's
     heading, its also: line and its --around window, a blank line between groups; a call outside the window (hook
     attachments sit between it and its result) prints above it."""
-    flagged = load(target, w, env)[5]
+    _, _, _, cache, _, flagged = load(target, w, env)
     rows = to_read(flagged, int(env.get("MIN_AGENTS") or 2))
     if not rows:
         return []
     out = ["widen: %s --around <transcript> <line> <radius>" % shlex.quote(os.path.abspath(__file__))]
+    out += red_nudge(flagged, cache, env)
     out += ["%s %s" % (who, shlex.quote(path)) for who, path, groups in flagged
              if any(o["m"] != "~" for o, _ in groups)] + [""]
     for i, (heading, also, path, n, u) in enumerate(rows):
-        call = around(path, u, 0, w) if u < n - radius else []
-        out += ([""] if i else []) + [heading] + ([also] if also else []) + call + around(path, n, radius, w)
+        window = around(path, n, radius, w)
+        call = [] if any(x.startswith("@%d " % u) for x in window) else around(path, u, 0, w)
+        out += ([""] if i else []) + [heading] + ([also] if also else []) + call + window
     return out
 
 
