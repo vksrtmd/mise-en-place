@@ -15,7 +15,7 @@ When the session already runs in .claude/worktrees/<name>, work there, and make 
 
 ## Clean up
 
-Clean up when you drop a scratch branch, right after you merge one (see Integrate in `~/.claude/docs/subagents.md`) or your PR, before each `git worktree add` and after each `gh pr merge`. Those last two sweep every worktree under `.claude/worktrees/` whose branch has a merged PR (`gh pr list --head <branch> --state merged` prints one; the session that opens a PR usually ends before it merges), and each whose PR is closed unmerged once the user confirms (ask once per branch). With no remote, sweep each branch `git branch --merged <default branch>` lists instead.
+Clean up when you drop a scratch branch, right after you merge one (see Integrate in `~/.claude/docs/subagents.md`) or your PR, before each `git worktree add` and after each `gh pr merge`. Those last two sweep every worktree under `.claude/worktrees/` whose branch has a merged PR (`gh pr list --head <branch> --state merged` prints one; the session that opens a PR usually ends before it merges), and each whose PR is closed unmerged once the user confirms (ask once per branch). With no remote, sweep only the branches you merged this session: `git branch --merged <default branch>` also lists the default branch and fresh branches other sessions may be using.
 
 cd to the repo root first, so the shell keeps a working directory. Remove a clean worktree by path (`git worktree remove <path>`), then `git branch -D <name>`, naming each branch and path literally. When the destructive-git hook blocks a step, its message names the way through.
 

@@ -4,7 +4,7 @@
 
 Name a branch `<issue_number>-<slug>` (`45-snapshots`), or `<slug>` for work without an issue. Before creating or pushing one, run `git fetch origin` and confirm the name is free: `git ls-remote --heads origin <name>`, `gh pr list --head <name> --state all` and `git branch --list <name>` all print nothing. Branch from `origin/<default branch>`, not the local copy.
 
-When `git remote` prints nothing, skip the fetch and the origin and `gh` checks, and branch from the local default branch. There is no PR to write: report the branch, and merge it only when the user asks, with `git merge --ff-only <branch>` from the main checkout.
+When `git remote` prints nothing, skip the fetch and the origin and `gh` checks, and branch from the local default branch. There is no PR to write: report the branch, and merge it only when the user asks, with `git merge --ff-only <branch>` from the main checkout; when it can't fast-forward, rebase the branch onto the default branch in its worktree and rerun the check first.
 
 ## Worktrees
 
