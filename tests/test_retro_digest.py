@@ -641,8 +641,8 @@ nr = agent_dir("nr", {
     "bbbbbbbb": [user("Fix the thing."), use("n2", "Bash", "make"), res("n2", True, "Exit code 2\nfail")],
 })
 out, _ = digest("--to-read", nr)
-has("digest.py --to-read red nudge", out, "\nnote: 1 ! windows in agents briefed for red tests (aaaaaaaa): when their reds were meant, rewrite with EXPECTED_RED='npm\\ test'\n")
-has("digest.py --to-read red nudge after widen:", out, "<transcript> <line> <radius>\nnote: 1 ")
+has("digest.py --to-read red nudge", out, "\nnote: agents briefed for red tests have ! windows (aaaaaaaa): when their reds were meant, rewrite with EXPECTED_RED='<regex of their commands>'\n")
+has("digest.py --to-read red nudge after widen:", out, "<transcript> <line> <radius>\nnote: agents ")
 out, _ = digest("--to-read", nr, env={"EXPECTED_RED": "zzz"})
 lacks("digest.py --to-read red nudge with EXPECTED_RED", out, "note:")
 out, _ = digest("--to-read", fr)
@@ -661,6 +661,40 @@ lacks("digest.py hedges fence", hd, "curl")
 has("digest.py hedges outside a fence", hd, "agent · aaaaaaaa: I assumed the host runs bash 5.")
 has("digest.py hedges gap section with a fence", hd, "the lock order")
 lacks("digest.py hedges main fence", hd, "main:")
+
+# --to-read note: Bash ! windows only, one entry per agent, red-test briefs only.
+tdd = "Use /tdd: write a red test first."
+edit_err = [user(tdd), jl({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "e1", "name": "Edit", "input": {"file_path": "/r/a.py", "old_string": "x", "new_string": "y"}}]}}),
+            res("e1", True, "<tool_use_error>String to replace not found in file.</tool_use_error>")]
+out, _ = digest("--to-read", agent_dir("ne", {"aaaaaaaa": edit_err}))
+lacks("digest.py --to-read note ignores an Edit error", out, "note:")
+out, _ = digest("--to-read", agent_dir("nm", {"aaaaaaaa": [user(tdd), use("1", "Bash", "cd /r &&\n  npm   test"), res("1", True, "Exit code 1\nboom")]}))
+has("digest.py --to-read note for a multi-line Bash command", out, "\nnote: agents briefed for red tests have ! windows (aaaaaaaa): ")
+out, _ = digest("--to-read", agent_dir("n2", {
+    "aaaaaaaa": [user(tdd), use("1", "Bash", "npm test"), res("1", True, "Exit code 1\nboom")],
+    "bbbbbbbb": [user("Do TDD."), use("2", "Bash", "npm test"), res("2", True, "Exit code 1\nboom")]}))
+has("digest.py --to-read note lists both agents failing one command", out, "! windows (aaaaaaaa, bbbbbbbb): ")
+out, _ = digest("--to-read", agent_dir("nq", {"aaaaaaaa": [user("Fix the GraphQL mutation resolver."), use("1", "Bash", "make"), res("1", True, "Exit code 2\nx")]}))
+lacks("digest.py --to-read note ignores a mutation resolver prompt", out, "note:")
+
+# Hedges: only a line-opened fence closed by a matching line is code.
+def fence_hedges(name, text):
+    d = agent_dir(name, {"aaaaaaaa": [user("Go."), handback(text)]})
+    out, _ = digest(d, "200")
+    return sed_range(out, r"^## hedges", r"^$")
+hd = fence_hedges("fa", "Markdown uses ``` for code. I assumed bash 5.\n```\nls\n```\nI did not run the e2e suite.")
+has("digest.py hedges inline backticks stay prose: first", hd, "I assumed bash 5.")
+has("digest.py hedges inline backticks stay prose: second", hd, "I did not run the e2e suite.")
+hd = fence_hedges("fb", "Done.\n```\nls\nI assumed the host runs bash 5.")
+has("digest.py hedges unterminated fence stays prose", hd, "I assumed the host runs bash 5.")
+hd = fence_hedges("fc", "- **Bug in parser**: ```x()``` and the cache was assumed warm.\nDone.")
+lacks("digest.py hedges inline triple backticks drop nothing", hd, "assumed warm")
+hd = fence_hedges("fd", "````md\n```\nI did not check\n```\nwe assumed it\n````\nI assumed bash 5.")
+has("digest.py hedges nested fence: after", hd, "I assumed bash 5.")
+lacks("digest.py hedges nested fence: inside", hd, "did not check")
+lacks("digest.py hedges nested fence: inner text", hd, "we assumed it")
+hd = fence_hedges("fe", "Done.\n~~~\necho did not check\n~~~\n")
+lacks("digest.py hedges tilde fence", hd, "did not check")
 
 tmpd.cleanup()
 
