@@ -15,4 +15,4 @@ Build the work the user names. When the user names one issue, fetch it and its s
 4. Call the Skill tool with "code-review", with the commit the branch started from as the fixed point (usually `origin/<default branch>`). It reviews `git diff <ref>...HEAD`, so it sees only committed work.
 5. Commit any fixes the review leads to on top.
 6. File each bug you found outside the work's scope as an issue, a sub-issue of the ticket's parent (a plain issue when it has none), so it outlives the PR.
-7. Push the branch and open a pull request, calling the Skill tool with "pr" to write its title and body, which links each issue step 6 filed. When the current branch is the default branch, stop after step 6 and tell the user.
+7. Push the branch and open a pull request, calling the Skill tool with "pr" to write its title and body, which links each issue step 6 filed. When the current branch is the default branch, stop after step 6 and tell the user. With no remote (`git remote` prints nothing), stop after step 6 and tell the user the branch is ready to merge.
