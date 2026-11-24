@@ -272,6 +272,30 @@ def main():
             if str(got) != want:
                 report("%s: '%s' in %s exited %s, want %s" % (hook, cmd, tmp, got, want))
 
+        # No remote: the squash check falls back to the local main, and git's own errors stay out of the reason.
+        n = os.path.join(tmp, "noremote")
+        try:
+            git("init", "-q", "-b", "main", n, cwd=ROOT)
+            r = n
+            c("base")
+            git("switch", "-qc", "squashed", cwd=n)
+            c("s1")
+            git("switch", "-q", "main", cwd=n)
+            git("merge", "-q", "--squash", "squashed", cwd=n)
+            git("-c", "commit.gpgsign=false", "commit", "-qm", "squash", cwd=n)
+            git("switch", "-qc", "local", cwd=n)
+            c("l")
+            git("switch", "-q", "main", cwd=n)
+        except subprocess.CalledProcessError:
+            print("no-remote fixture failed")
+            return 2
+        got = hook_run(hook, "git -C noremote branch -D squashed", cwd=tmp)[0]
+        if got != 0:
+            report("%s: squash-merged branch in a repo without a remote exited %s, want 0" % (hook, got))
+        err = hook_run(hook, "git -C noremote branch -D local", cwd=tmp)[2]
+        if not err.startswith("BLOCKED") or "git branch -d" not in err:
+            report("%s: unmerged branch without a remote: want a BLOCKED reason naming git branch -d, got: %s" % (hook, err.strip()))
+
         for cmd in LITERAL.split("\n"):
             if not cmd:
                 continue

@@ -67,7 +67,7 @@ at() {
 }
 
 # Succeeds when "git ... branch -D <names>" loses no commit: each tip is on a ref other than the
-# named branches (origin's copy, main), or its diff since origin's default branch forked landed
+# named branches (origin's copy, main), or its diff since the default branch forked landed
 # there as one commit (a squash merge).
 lossless() {
   local d=$dir t tip def mb id skip=0 n=0 names=() tips=()
@@ -82,11 +82,14 @@ lossless() {
          names+=("refs/heads/$t") tips+=("$tip") ;;
     esac
   done
-  def=$(git -C "$d" rev-parse -q --verify --abbrev-ref origin/HEAD) || def=origin/main
+  # A repo without a remote squash-merges into its local main or master.
+  for def in "$(git -C "$d" rev-parse -q --verify --abbrev-ref origin/HEAD)" origin/main main master; do
+    git -C "$d" rev-parse -q --verify "$def^{commit}" >/dev/null && break
+  done
   for tip in "${tips[@]}"; do
     ((++n))
     git -C "$d" for-each-ref --contains "$tip" --format='%(refname)' | grep -qvxF "${names[@]/#/-e}" && continue
-    mb=$(git -C "$d" merge-base "$def" "$tip") || return 1
+    mb=$(git -C "$d" merge-base "$def" "$tip" 2>/dev/null) || return 1
     id=$(git -C "$d" diff "$mb" "$tip" | git patch-id --stable | cut -d' ' -f1)
     [[ -n $id ]] && git -C "$d" log -p --no-merges "$mb..$def" | git patch-id --stable | cut -d' ' -f1 | grep -qxF "$id" || return 1
   done
@@ -145,7 +148,7 @@ while IFS= read -r seg; do
           re=$' branch [^;&|\n]*[$`]'
           [[ $unquoted =~ $re ]] &&
             block "git branch -D" "names a branch through \$ or a backtick, which the hook can't expand to check. Pass branch names literally"
-          block "git branch -D" "deletes commits that are on no other ref and not merged into origin's default branch, maybe another agent's. Push the branch or merge it first"
+          block "git branch -D" "deletes commits that are on no other ref and not merged into the default branch, maybe another agent's. Push the branch or merge it first; the hook checks before the command runs, so a merge earlier in the same command doesn't count. Once merged, delete it with 'git branch -d'"
         } ;;
     *" worktree remove "*)
       # Without --force git refuses a worktree with changes; with it, they go, even another agent's.
